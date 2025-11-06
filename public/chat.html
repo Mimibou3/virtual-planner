@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Virtual Planner</title>
+  <style>
+    :root {
+      --bg:#F8F6F2;
+      --text:#232323;
+      --muted:#666;
+      --line:#E8E3DC;
+      --you:#CF5D64;
+      --ai:#FFFFFF;
+      --ai-border:#EDE7E0;
+      --btn:#CF5D64;
+      --btn-text:#fff;
+    }
+    * { box-sizing:border-box; }
+    html, body { height:100%; margin:0; }
+    body {
+      background:var(--bg); color:var(--text);
+      font-family:system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+      line-height:1.6;
+    }
+
+    /* main container like a phone */
+    .phone {
+      width:100%; max-width:480px; height:100vh; margin:0 auto;
+      display:flex; flex-direction:column;
+      background:#fff;
+      border-left:1px solid var(--line);
+      border-right:1px solid var(--line);
+    }
+
+    /* header */
+    .top {
+      position:sticky; top:0; z-index:10;
+      background:#fff; border-bottom:1px solid var(--line);
+      padding:10px 14px; display:flex; align-items:center; gap:10px;
+    }
+    .seal { width:42px; height:42px; object-fit:contain; }
+    .who { display:flex; flex-direction:column; }
+    .who .name { font-weight:700; }
+    .who .meta { font-size:13px; color:var(--muted); }
+
+    /* messages area */
+    .messages {
+      flex:1 1 auto; overflow:auto;
+      padding:14px 12px 100px;
+      background:#faf9f7;
+    }
+
+    .row { display:flex; flex-direction:column; margin:10px 0; }
+    .msg {
+      max-width:80%; padding:10px 14px;
+      border-radius:16px; white-space:pre-wrap;
+      word-wrap:break-word;
+      box-shadow:0 1px 0 rgba(0,0,0,.03);
+    }
+    .you { align-self:flex-end; background:var(--you); color:#fff; }
+    .ai { align-self:flex-start; background:var(--ai); border:1px solid var(--ai-border); }
+
+    .timestamp {
+      font-size:11px; color:var(--muted);
+      margin-top:4px; text-align:right;
+    }
+    .ai .timestamp { text-align:left; }
+
+    /* typing dots */
+    .typing { display:inline-flex; gap:4px; align-items:center; }
+    .dot {
+      width:6px; height:6px; border-radius:50%; background:#A4A4A4;
+      opacity:.8; animation:blink 1.2s infinite;
+    }
+    .dot:nth-child(2){animation-delay:.2s}
+    .dot:nth-child(3){animation-delay:.4s}
+    @keyframes blink {0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+
+    /* input dock */
+    .dock {
+      position:fixed; left:0; right:0; bottom:28px;
+      display:flex; justify-content:center;
+      padding:10px;
+      background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.85));
+      border-top:1px solid var(--line);
+    }
+    .bar { width:100%; max-width:480px; display:flex; gap:8px; }
+    .text {
+      flex:1; border:1px solid var(--line);
+      border-radius:18px; padding:12px;
+      font:inherit; line-height:1.5;
+    }
+    .send {
+      background:var(--btn); color:var(--btn-text);
+      border:0; border-radius:18px;
+      padding:0 16px; font:inherit; height:44px;
+    }
+    .send:disabled { opacity:.6; }
+
+    /* footer copyright */
+    footer {
+      position:fixed; bottom:0; left:0; right:0;
+      background:#fff; border-top:1px solid var(--line);
+      font-size:12px; color:var(--muted);
+      text-align:center; padding:6px 4px;
+    }
+
+    @media (min-width:900px) {
+      body { background:var(--bg); }
+      .phone {
+        margin:0 auto; border:1px solid var(--line);
+        border-radius:18px; overflow:hidden;
+      }
+      .dock {
+        left:50%; right:unset; transform:translateX(-50%);
+        width:100%; max-width:480px; border-radius:0 0 18px 18px;
+      }
+      footer {
+        left:50%; transform:translateX(-50%);
+        width:100%; max-width:480px; border-radius:0 0 18px 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="phone" id="app">
+    <div class="top">
+      <img class="seal" id="seal" alt="City seal" />
+      <div class="who">
+        <div class="name" id="planner">Planner</div>
+        <div class="meta" id="cityMeta">City</div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages" aria-live="polite"></div>
+  </div>
+
+  <div class="dock">
+    <div class="bar">
+      <input class="text" id="input" placeholder="Type your question…" autocomplete="off" />
+      <button class="send" id="send">Send</button>
+    </div>
+  </div>
+
+  <footer>© 2025 Purpose Driven Games · Virtual Planner</footer>
+
+  <script>
+    const CITY = location.pathname.replace(/^\\//, '').toLowerCase();
+
+    const msgs = document.getElementById('messages');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const seal = document.getElementById('seal');
+    const planner = document.getElementById('planner');
+    const cityMeta = document.getElementById('cityMeta');
+
+    let cityCfg = null;
+
+    function timestamp() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function row(text, who) {
+      const r = document.createElement('div');
+      r.className = 'row';
+      const b = document.createElement('div');
+      b.className = 'msg ' + (who === 'you' ? 'you' : 'ai');
+      b.textContent = text;
+      const t = document.createElement('div');
+      t.className = 'timestamp';
+      t.textContent = timestamp();
+      r.appendChild(b);
+      r.appendChild(t);
+      msgs.appendChild(r);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function typingOn() {
+      const r = document.createElement('div');
+      r.className = 'row';
+      r.id = 'typing';
+      const b = document.createElement('div');
+      b.className = 'msg ai';
+      const t = document.createElement('span');
+      t.className = 'typing';
+      t.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      b.appendChild(t);
+      r.appendChild(b);
+      msgs.appendChild(r);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function typingOff() {
+      const t = document.getElementById('typing');
+      if (t) t.remove();
+    }
+
+    async function loadCity() {
+      const all = await fetch('/api/cities').then(r => r.json());
+      const key = Object.keys(all).find(k => k.toLowerCase() === CITY);
+      if (!key) {
+        document.title = "City not found";
+        row("This city isn’t configured.", "ai");
+        sendBtn.disabled = true;
+        return;
+      }
+      cityCfg = all[key];
+      planner.textContent = cityCfg.plannerName;
+      cityMeta.textContent = key;
+      if (cityCfg?.branding?.logo) seal.src = cityCfg.branding.logo;
+
+      const userColor = cityCfg?.branding?.primaryColor || '#CF5D64';
+      document.documentElement.style.setProperty('--you', userColor);
+
+      document.title = `${key} • Virtual Planner`;
+      row(`You’re now chatting with ${cityCfg.plannerName} for ${key}.`, 'ai');
+    }
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text || !cityCfg) return;
+      row(text, 'you');
+      input.value = '';
+      sendBtn.disabled = true;
+      typingOn();
+
+      try {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city: CITY, message: text })
+        });
+        const data = await r.json();
+        typingOff();
+        if (!r.ok) row('Error: ' + (data.error || 'Request failed'), 'ai');
+        else row(data.reply, 'ai');
+      } catch (e) {
+        typingOff();
+        row('Network error. Please try again.', 'ai');
+      } finally {
+        sendBtn.disabled = false;
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    }
+
+    sendBtn.addEventListener('click', send);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+    loadCity();
+  </script>
+</body>
+</html>
