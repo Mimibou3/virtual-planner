@@ -33,6 +33,14 @@ try {
   console.error("❌ ERROR: Cannot read data/cities.json", e);
 }
 
+// ---------- helpers ----------
+function getCityConfig(name) {
+  const wanted = String(name || "").trim().toLowerCase();
+  const key = Object.keys(cities).find(k => k.toLowerCase() === wanted);
+  if (!key) return null;
+  return { key, cfg: cities[key] };
+}
+
 // --- Health check route ---
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -65,10 +73,11 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "Provide 'city' and 'message' in the JSON body." });
     }
 
-    const cfg = cities[city];
-    if (!cfg) {
+    const found = getCityConfig(city);
+    if (!found) {
       return res.status(404).json({ error: `Unknown city: ${city}` });
     }
+    const { key: cityKey, cfg } = found;
 
     // Each city points to an env var name in cities.json (envKey)
     const envKey = cfg.envKey;                 // e.g., CITY_GREENVALE_TOKEN
@@ -77,22 +86,17 @@ app.post("/api/chat", async (req, res) => {
       return res.status(500).json({ error: `Missing environment variable: ${envKey}` });
     }
 
-    // City-specific planner voice
     const systemPrompt = `
-You are ${cfg.plannerName}, the city planner for ${city}.
+You are ${cfg.plannerName}, the city planner for ${cityKey}.
 Be clear, brief, and resident-friendly. When appropriate, suggest what part of the zoning code to check.
 Do not give legal advice. If information is uncertain, explain what the user can verify and where.
-`;
+`.trim();
 
-    // User content is just the user's message (we keep tokens server-side)
-    const userPrompt = message;
-
-    // Call OpenAI (Chat Completions API; reliable and simple)
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt.trim() },
-        { role: "user", content: userPrompt }
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
       ],
       temperature: 0.4
     });
@@ -100,23 +104,19 @@ Do not give legal advice. If information is uncertain, explain what the user can
     const text = completion?.choices?.[0]?.message?.content?.trim();
     if (!text) return res.status(502).json({ error: "No text returned from OpenAI." });
 
-    res.json({
-      city,
-      planner: cfg.plannerName,
-      reply: text
-    });
+    res.json({ city: cityKey, planner: cfg.plannerName, reply: text });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ error: "Chat route failed." });
   }
 });
 
-// --- Simple GET test route (so you can verify without tools) ---
+// --- Simple GET test route (case-insensitive) ---
 app.get("/api/chat/test/:city", async (req, res) => {
   try {
-    const city = req.params.city;
-    const cfg = cities[city];
-    if (!cfg) return res.status(404).json({ error: `Unknown city: ${city}` });
+    const found = getCityConfig(req.params.city);
+    if (!found) return res.status(404).json({ error: `Unknown city: ${req.params.city}` });
+    const { key: cityKey, cfg } = found;
 
     const envKey = cfg.envKey;
     if (!process.env[envKey]) {
@@ -124,21 +124,21 @@ app.get("/api/chat/test/:city", async (req, res) => {
     }
 
     const systemPrompt = `
-You are ${cfg.plannerName}, the city planner for ${city}.
+You are ${cfg.plannerName}, the city planner for ${cityKey}.
 Give one concise sentence describing what "mixed-use zoning" generally means.
-`;
+`.trim();
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt.trim() },
+        { role: "system", content: systemPrompt },
         { role: "user", content: "Describe mixed-use zoning in one sentence." }
       ],
       temperature: 0.3
     });
 
     const text = completion?.choices?.[0]?.message?.content?.trim() || "(no text)";
-    res.json({ city, planner: cfg.plannerName, sample: text });
+    res.json({ city: cityKey, planner: cfg.plannerName, sample: text });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Test route failed." });
