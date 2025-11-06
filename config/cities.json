@@ -1,0 +1,6 @@
+{
+  "greenvale":  { "planner": "Maria Bento, Senior Planner",  "token": "GV-9246", "start": "2025-11-06T00:00:00-05:00", "end": "2025-11-21T23:59:59-05:00" },
+  "harbortown": { "planner": "Amy Mythos, Senior Planner",   "token": "HB-4411", "start": "2025-11-06T00:00:00-05:00", "end": "2025-11-21T23:59:59-05:00" },
+  "ironridge":  { "planner": "Chris Markus, Senior Planner", "token": "IR-7702", "start": "2025-11-06T00:00:00-05:00", "end": "2025-11-21T23:59:59-05:00" },
+  "riverton":   { "planner": "Ryan Hill, Senior Planner",    "token": "RV-5590", "start": "2025-11-06T00:00:00-05:00", "end": "2025-11-21T23:59:59-05:00" }
+}

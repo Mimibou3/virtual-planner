@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Virtual Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root{
+      --ink:#111;
+      --muted:#6b7280;
+      --line:#e6e9ee;
+      --soft:#f7f9fc;
+      --bot:#f5f6f9;
+      --you:#eef6ff;
+      --accent:#2b72ff;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:system-ui, Segoe UI, Arial, sans-serif;
+      color:var(--ink);
+      background:linear-gradient(180deg,#ffffff,#fafbff);
+      display:flex;justify-content:center;
+    }
+    .app{width:100%;max-width:880px;padding:0 16px 32px}
+
+    .top{
+      position:sticky;top:0;z-index:20;
+      background:#fff;border-bottom:1px solid var(--line);
+      padding:10px 2px 8px;
+    }
+    .title{font-weight:800;letter-spacing:.2px;font-size:18px}
+
+    form#f{
+      position:sticky;top:48px;z-index:10;
+      background:#fff;border-bottom:1px solid var(--line);
+      display:flex;gap:10px;padding:12px 0;margin-bottom:12px;
+    }
+    #m{
+      flex:1;border:1px solid #cfd7e3;border-radius:12px;
+      padding:12px 14px;font-size:16px;background:#fff;outline:none;
+    }
+    #m:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,114,255,.15)}
+    button{
+      border:0;background:var(--accent);color:#fff;border-radius:12px;
+      padding:12px 16px;font-size:16px;cursor:pointer;
+      box-shadow:0 2px 6px rgba(43,114,255,.28);
+    }
+    button:hover{filter:brightness(1.05)}
+
+    .card{
+      background:#fff;border:1px solid var(--line);border-radius:16px;
+      box-shadow:0 8px 24px rgba(18,38,63,.06);
+      padding:14px;min-height:240px;
+      scroll-behavior:smooth;
+    }
+
+    .msg{display:flex;gap:10px;align-items:flex-start;margin:10px 0;}
+    .msg.you{flex-direction:row-reverse}
+    .avatar{
+      flex:0 0 34px;height:34px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;color:#fff;user-select:none;
+      box-shadow:0 2px 6px rgba(0,0,0,.12);
+      font-size:13px;
+    }
+    .avatar.bot{background:#111}
+    .avatar.you{background:var(--accent)}
+    .bubble{
+      max-width:82%;
+      border-radius:14px;padding:10px 12px;line-height:1.65;
+      white-space:pre-line;word-wrap:break-word;
+      border:1px solid var(--line);
+    }
+    .bot .bubble{background:var(--bot);border-left:3px solid var(--accent)}
+    .you .bubble{background:var(--you)}
+
+    .dots{display:inline-block;min-width:30px}
+    .dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:#909ab5;opacity:.6;animation:bump 1s infinite}
+    .dots span:nth-child(2){animation-delay:.15s}
+    .dots span:nth-child(3){animation-delay:.3s}
+    @keyframes bump{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-6px);opacity:.9}}
+
+    @media (max-width:480px){
+      .title{font-size:16px}
+      .bubble{max-width:86%}
+      #m,button{font-size:15px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="top"><div id="title" class="title"></div></div>
+
+    <form id="f" autocomplete="off">
+      <input id="m" placeholder="Ask about uses, parking, definitions…" />
+      <button>Send</button>
+    </form>
+
+    <div id="log" class="card" aria-live="polite"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const city = (params.get("city") || "greenvale").toLowerCase();
+    const planners = {
+      "greenvale": "Maria Bento, Senior Planner",
+      "harbortown": "Amy Mythos, Senior Planner",
+      "ironridge": "Chris Markus, Senior Planner",
+      "riverton": "Ryan Hill, Senior Planner"
+    };
+    document.getElementById("title").textContent = planners[city] || "Senior Planner";
+
+    function getInitials(fullTitle){
+      const name = (fullTitle || "").split(",")[0].trim();
+      const parts = name.split(/\s+/).filter(Boolean);
+      return parts.slice(0,2).map(p=>p[0]?.toUpperCase()||"").join("")||"VP";
+    }
+    const plannerInitials = getInitials(planners[city]);
+    const log = document.getElementById("log");
+
+    function scrollToBottom(){
+      setTimeout(()=>{log.scrollTo({top:log.scrollHeight,behavior:"smooth"});},150);
+    }
+
+    function makeRow(role, text){
+      const row=document.createElement('div');
+      row.className=`msg ${role}`;
+      const avatar=document.createElement('div');
+      avatar.className=`avatar ${role}`;
+      avatar.textContent=role==='you'?'You':plannerInitials;
+      const bubble=document.createElement('div');
+      bubble.className='bubble';
+      bubble.textContent=text||'';
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      return {row,bubble};
+    }
+
+    function addMessage(role, text){
+      const {row}=makeRow(role,text);
+      log.appendChild(row);
+      scrollToBottom();
+      return row;
+    }
+
+    function addTyping(){
+      const {row,bubble}=makeRow('bot','');
+      const dots=document.createElement('span');
+      dots.className='dots';
+      dots.innerHTML='<span></span><span></span><span></span>';
+      bubble.appendChild(dots);
+      log.appendChild(row);
+      scrollToBottom();
+      return row;
+    }
+
+    function setBubbleText(row,text){
+      const bubble=row.querySelector('.bubble');
+      bubble.textContent=text;
+      scrollToBottom();
+    }
+
+    document.getElementById("f").addEventListener("submit",async e=>{
+      e.preventDefault();
+      const input=document.getElementById("m");
+      const msg=input.value.trim();
+      if(!msg)return;
+
+      addMessage('you',msg);
+      input.value='';
+
+      const typingRow=addTyping();
+
+      try{
+        const r=await fetch("/api/respond?city="+encodeURIComponent(city),{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({user:msg})
+        });
+        const data=await r.json();
+        setBubbleText(typingRow,data.text||data.error||"(no response)");
+      }catch(err){
+        setBubbleText(typingRow,"Sorry — I couldn’t load a response.");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+Article 4. District Use Requirements
+4.1 Permitted Use Table
+Key: P = Permitted | S = Special Use Permit | — = Not Permitted
+Table 4.1 – Permitted Uses
+
+Use Category | Specific Use | R-1 | R-2 | C-2 | Notes / Conditions
+Residential | Single-family dwelling | P | — | — | Primary allowed use
+Residential | Two-family dwelling (Duplex) | — | P | — | Special approval required in R-1; often limited by lot size
+Residential | Multi-family dwelling (3+ units) | — | P | — | Only allowed in R-2 to limit density in R-1
+Residential | Accessory Dwelling Unit (ADU) | S | S | — | Requires added on-site parking
+Residential | Home occupation | S | S | — | No customer visits allowed
+Community / Institutional | Church | P | P | P | Standard neighborhood institution
+Community / Institutional | Library | P | P | P | Public access facility
+Community / Institutional | Daycare / Preschool | S | P | P | Special permit in R-1 to review traffic + noise
+Open Space / Recreation | Public park or playground | P | P | — | May require site plan
+Retail / Food | Grocery store / supermarket | — | — | P | Not allowed in R-1 or R-2
+Retail / Food | Small corner grocery / bodega | S | S | P | Only allowed on corner lots with limited hours
+Retail / Food | Convenience store / gas station | — | — | P | C-2 only
+Retail / Food | Farmers market / temporary vendor | S | S | S | Seasonal / temporary permit
+Retail / Food | Fast-food / drive-through | — | — | P | Subject to spacing rules
+Retail / Food | Sit-down restaurant | — | — | P | C-2 commercial areas
+Services / Offices | Small professional office | — | S | P | R-2 by special approval
+Automotive / Transportation | Medical clinic | — | S | P | —
+Automotive / Transportation | Gas station | — | — | P | —

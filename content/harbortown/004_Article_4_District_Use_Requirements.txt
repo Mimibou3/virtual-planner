@@ -1,0 +1,18 @@
+Article 4. District Use Requirements
+4.1 Permitted Use Table
+Key: P = Permitted | S = Special Use Permit | — = Not Permitted
+Table 4.1 – Permitted Uses
+
+Use Category | Specific Use | R-1 | C-2 | I-2 | Notes / Conditions
+Residential | Single-family dwelling | P | — | — | 
+Residential | Multi-family dwelling | — | — | — | 
+Industrial / Manufacturing | Heavy manufacturing | — | — | P | Metal, chemical, and materials processing
+Industrial / Manufacturing | Concrete or asphalt batch plant | — | — | P | 
+Warehousing / Logistics | Petroleum storage or refining | — | — | S | Requires Fire Marshal review only
+Warehousing / Logistics | Freight or truck terminal | — | — | P | No truck-route limitation
+Warehousing / Logistics | Container yard | — | — | P | Outdoor storage permitted
+Waste Management | Recycling or material recovery | — | — | P | Outdoor shredding allowed if screened
+Waste Management | Salvage yard | — | — | P | Chain-link fencing required
+Waste Management | Solid-waste transfer facility | — | — | S | Prohibited only within 200 ft of schools
+Commercial Services | Heavy equipment sales / rental | — | P | P | Outdoor display allowed
+Commercial Services | Truck stop / fueling station | — | P | P | No separation from parks or churches

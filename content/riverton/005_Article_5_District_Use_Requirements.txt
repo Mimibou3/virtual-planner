@@ -1,0 +1,31 @@
+Article 5. District Use Requirements
+5.1 Permitted Use Table
+Key: P = Permitted | S = Special Use Permit | — = Not Permitted
+Table 5-1 – Permitted Uses
+
+Use Category | Specific Use | R-1 | C-2 | I-1 | Notes / Conditions
+Retail Sales & Service | Convenience store (≤ 3,000 sq ft) | — | P | — | Drive-through permitted in C-2
+Retail Sales & Service | Grocery store (≥ 15,000 sq ft) | — | P | — | Typical anchor use
+Retail Sales & Service | General merchandise store | — | P | — | 
+Retail Sales & Service | Gas station / car wash | — | P | P | Allows wide driveways
+Eating & Drinking | Fast-food / drive-through restaurant | — | P | — | Outdoor seating optional
+Eating & Drinking | Sit-down restaurant | — | P | — | 
+Eating & Drinking | Bar / tavern | — | P | S | 
+Lodging | Hotel / motel | — | P | P | Auto-accessed
+Automotive Uses | Auto repair / tire shop | — | P | P | Service bays may face street
+Automotive Uses | Car dealership | — | P | — | Large display lots
+Automotive Uses | Drive-through bank / pharmacy | — | P | — | Multiple driveways permitted
+Personal Services | Laundromat / dry cleaner | — | P | — | 
+Personal Services | Hair salon / barbershop | — | P | — | 
+Personal Services | Fitness center (≤ 25,000 sq ft) | — | P | — | 
+Offices | Professional office | — | P | P | 
+Offices | Medical or dental clinic | — | P | P | 
+Institutional | Day care center | S | P | — | Vehicle drop-off area required
+Institutional | Church / place of worship | P | P | — | 
+Institutional | School (private or charter) | P | S | — | 
+Recreation / Entertainment | Indoor recreation (bowling, arcade) | — | P | P | 
+Recreation / Entertainment | Outdoor recreation (mini-golf, batting cages) | — | S | P | 
+Residential | Single-family dwellings | P | — | — | 
+Residential | Upper-story residential | — | — | — | Not permitted in C-2
+Industrial / Storage | Warehouse, self-storage | — | S | P | 
+Other | Billboards / off-premise signs | — | P | P | 
