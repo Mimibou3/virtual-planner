@@ -2,143 +2,245 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Virtual Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --ink:#111; --muted:#6b7280; --bg:#f7f7f9; --card:#fff; --shadow:0 12px 30px rgba(0,0,0,.08);
-      /* city accent falls back to blue; we override per city below */
-      --accent:#2b72ff;
+      --bg:#FAF7F2;        /* page background */
+      --card:#FFFFFF;      /* panels */
+      --text:#2E2E2E;      /* base text */
+      --muted:#6B6B6B;     /* secondary text */
+      --line:#EAE7E2;      /* thin borders */
+      --bubble-you:#CF5D64;     /* default user bubble (pink from your brand) */
+      --bubble-ai:#FFFFFF;      /* ai bubble */
+      --bubble-ai-border:#E9E3DC;
+      --btn:#CF5D64;            /* primary button */
+      --btn-text:#FFFFFF;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Arial}
-    .wrap{max-width:900px;margin:0 auto;padding:0 16px;display:flex;flex-direction:column;min-height:100%}
-    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eee;z-index:2}
-    .bar{display:flex;align-items:center;gap:12px;padding:12px 16px}
-    .logo{width:36px;height:36px;object-fit:contain;border-radius:50%;border:1px solid #e5e7eb;background:#fff}
-    #title{font-weight:700}
-    form{position:sticky;top:68px;background:#fff;border-bottom:1px solid #eee;z-index:1;padding:12px 16px;display:flex;gap:10px}
-    input{flex:1;padding:12px;border:1px solid #ccc;border-radius:12px;font-size:16px}
-    button{padding:12px 16px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-size:16px;cursor:pointer}
-    .list{flex:1;display:flex;padding:16px}
-    .feed{flex:1;background:var(--card);box-shadow:var(--shadow);border-radius:16px;padding:16px;overflow:auto}
-    .row{display:flex;margin:10px 0;gap:10px}
-    .me{justify-content:flex-end}
-    .bubble{max-width:70%;padding:12px 14px;border-radius:14px;line-height:1.55;border:1px solid #e5e7eb;background:#fafbff}
-    .me .bubble{background:#e9f2ff;border-color:#d5e8ff}
-    .avatar{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:var(--accent)}
-    .footer{padding:14px 4px;color:#666;text-align:center;font-size:13px}
-    .dot{display:inline-block;width:6px;height:6px;background:#999;border-radius:50%;margin:0 2px;animation:b 1s infinite}
-    .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
-    @keyframes b{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
-    @media (max-width:540px){ .bubble{max-width:82%} }
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    header{
+      position:sticky; top:0; z-index:5;
+      background:var(--card); border-bottom:1px solid var(--line);
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:16px;}
+    .row{display:flex; gap:16px; flex-wrap:wrap;}
+    .card{
+      background:var(--card); border:1px solid var(--line);
+      border-radius:16px; padding:16px;
+      box-shadow: 0 1px 0 rgba(0,0,0,.03);
+    }
+    .city-card{flex:1 1 260px; min-width:260px}
+    .chat-card{flex:2 1 460px; min-width:320px; display:flex; flex-direction:column; height:70vh}
+
+    label{font-size:13px; color:var(--muted); display:block; margin-bottom:6px}
+    select, input, button{
+      font:inherit; border-radius:12px; border:1px solid var(--line); background:#fff;
+      padding:10px 12px;
+    }
+    select, input{width:100%}
+    button{background:var(--btn); color:var(--btn-text); border:0; cursor:pointer}
+    button:disabled{opacity:.7; cursor:not-allowed}
+
+    .city-header{display:flex; align-items:center; gap:12px; margin-top:10px}
+    .city-header img{width:48px; height:48px; object-fit:contain}
+    .meta{color:var(--muted); font-size:13px}
+
+    .log{flex:1 1 auto; overflow:auto; background:#fff; border:1px solid var(--line);
+      border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px}
+    .msg{max-width:85%; padding:10px 12px; border-radius:14px; line-height:1.45; word-wrap:break-word}
+    .you{margin-left:auto; background:var(--bubble-you); color:#fff}
+    .ai{margin-right:auto; background:var(--bubble-ai); color:var(--text); border:1px solid var(--bubble-ai-border)}
+    .stamp{font-size:11px; color:var(--muted); margin-top:2px}
+
+    .bar{display:flex; gap:8px; margin-top:10px}
+    .bar input{flex:1}
+
+    /* typing dots */
+    .typing{display:inline-flex; gap:4px; align-items:center}
+    .dot{width:6px; height:6px; border-radius:50%; background:#A4A4A4; opacity:.8; animation:blink 1.2s infinite}
+    .dot:nth-child(2){animation-delay:.2s}
+    .dot:nth-child(3){animation-delay:.4s}
+    @keyframes blink{
+      0%,80%,100%{opacity:.2; transform:translateY(0)}
+      40%{opacity:1; transform:translateY(-2px)}
+    }
+
+    /* mobile tweaks */
+    @media (max-width: 640px){
+      .chat-card{height:70vh}
+      .msg{max-width:92%}
+    }
+
+    /* city theme preview strip */
+    .theme-bar{
+      height:6px; width:100%; border-radius:999px; background:linear-gradient(90deg, var(--bubble-you), #808BC4, #80CBC4);
+      opacity:.25; margin-top:10px
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="bar">
-        <img id="cityLogo" class="logo" alt="City logo" />
-        <div id="title">Senior Planner</div>
-      </div>
-    </header>
-
-    <form id="f" autocomplete="off">
-      <input id="m" placeholder="Ask about uses, parking, definitions…" />
-      <button>Send</button>
-    </form>
-
-    <div class="list">
-      <div class="feed" id="feed"></div>
+  <header>
+    <div class="wrap">
+      <strong>Virtual Planner</strong>
+      <div class="theme-bar" id="themeBar"></div>
     </div>
+  </header>
 
-    <div class="footer">© Purpose Driven Games</div>
+  <div class="wrap">
+    <div class="row">
+      <div class="card city-card">
+        <label for="citySel">Choose a city</label>
+        <select id="citySel"></select>
+
+        <div class="city-header">
+          <img id="cityLogo" alt="City logo" />
+          <div>
+            <div id="plannerName" style="font-weight:600"></div>
+            <div id="cityName" class="meta"></div>
+          </div>
+        </div>
+
+        <div class="meta" style="margin-top:8px">
+          Tip: Your messages appear in pink bubbles. The planner replies in white.
+        </div>
+      </div>
+
+      <div class="card chat-card">
+        <div id="log" class="log" aria-live="polite"></div>
+
+        <div class="bar">
+          <input id="msg" placeholder="Ask a zoning question…" autocomplete="off" />
+          <button id="send">Send</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-<script>
-  // ----- per-city accent + title + logo -----
-  const params = new URLSearchParams(location.search);
-  const city = (params.get("city") || "").toLowerCase();
-  const token = params.get("token") || "";
+  <script>
+    const citySel = document.getElementById('citySel');
+    const cityLogo = document.getElementById('cityLogo');
+    const plannerName = document.getElementById('plannerName');
+    const cityName = document.getElementById('cityName');
+    const log = document.getElementById('log');
+    const msgInput = document.getElementById('msg');
+    const sendBtn = document.getElementById('send');
+    const themeBar = document.getElementById('themeBar');
 
-  const accents = {
-    greenvale:  "#2E5C48",  // green
-    harbortown: "#2A3E64",  // navy
-    ironridge:  "#7A2E2E",  // maroon
-    riverton:   "#2A3E64"   // navy
-  };
-  const planners = {
-    greenvale: "Maria Bento, Senior Planner",
-    harbortown: "Amy Mythos, Senior Planner",
-    ironridge: "Chris Markus, Senior Planner",
-    riverton: "Ryan Hill, Senior Planner"
-  };
+    let cities = {};
+    let currentCity = null;
 
-  document.documentElement.style.setProperty("--accent", accents[city] || "#2b72ff");
-  document.getElementById("title").textContent = planners[city] || "Senior Planner";
-  const logoEl = document.getElementById("cityLogo");
-  logoEl.src = `/logos/${city}.png`;
-  logoEl.onerror = () => { logoEl.style.display = "none"; };
-
-  // ----- chat helpers -----
-  const feed = document.getElementById("feed");
-  const add = (who, html) => {
-    const row = document.createElement("div");
-    row.className = "row " + (who === "me" ? "me" : "");
-    const av  = document.createElement("div");
-    av.className = "avatar";
-    av.textContent = who === "me" ? "You"[0] : (planners[city]?.split(" ")[0]||"PL")[0] + (planners[city]?.split(" ")[1]||"")[0];
-    const b = document.createElement("div");
-    b.className = "bubble";
-    b.innerHTML = html;
-    if (who === "me") { row.appendChild(b); row.appendChild(av); }
-    else { row.appendChild(av); row.appendChild(b); }
-    feed.appendChild(row);
-    feed.scrollTop = feed.scrollHeight;
-  };
-
-  const spinner = () => `<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
-
-  // ----- form -----
-  document.getElementById("f").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const m = document.getElementById("m");
-    const q = m.value.trim();
-    if (!q) return;
-    add("me", q);
-    m.value = "";
-
-    // thinking row
-    const thinkRow = document.createElement("div");
-    thinkRow.className = "row";
-    const av  = document.createElement("div"); av.className = "avatar"; av.textContent = "…";
-    const b = document.createElement("div"); b.className = "bubble"; b.innerHTML = spinner();
-    thinkRow.appendChild(av); thinkRow.appendChild(b); feed.appendChild(thinkRow); feed.scrollTop = feed.scrollHeight;
-
-    try {
-      const r = await fetch(`/api/respond?city=${encodeURIComponent(city)}&token=${encodeURIComponent(token)}`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ user: q })
-      });
-
-      let data;
-      try { data = await r.json(); } catch { data = { error: "Bad JSON from server." }; }
-
-      feed.removeChild(thinkRow);
-
-      if (!r.ok) {
-        add("bot", `Sorry — ${data?.error || r.statusText || "I couldn’t load a response."}`);
-        return;
-      }
-      add("bot", (data.text || data.error || "I couldn’t load a response."));
-
-    } catch (err) {
-      feed.removeChild(thinkRow);
-      add("bot", "Sorry — network error talking to the server.");
+    function el(tag, cls, text){
+      const d = document.createElement(tag);
+      if (cls) d.className = cls;
+      if (text) d.textContent = text;
+      return d;
     }
-  });
-</script>
+
+    function addMsg(text, who){
+      const wrap = el('div');
+      const bubble = el('div', 'msg ' + (who === 'you' ? 'you' : 'ai'));
+      bubble.textContent = text;
+      wrap.appendChild(bubble);
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function addTyping(){
+      const wrap = el('div'); wrap.id = 'typing';
+      const bubble = el('div', 'msg ai');
+      const dots = el('span', 'typing');
+      dots.appendChild(el('span','dot'));
+      dots.appendChild(el('span','dot'));
+      dots.appendChild(el('span','dot'));
+      bubble.appendChild(dots);
+      wrap.appendChild(bubble);
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+    }
+    function removeTyping(){
+      const t = document.getElementById('typing');
+      if (t) t.remove();
+    }
+
+    async function loadCities(){
+      const res = await fetch('/api/cities');
+      cities = await res.json();
+
+      const options = Object.keys(cities)
+        .map(k => `<option value="${k}">${k}</option>`)
+        .join('');
+      citySel.innerHTML = options;
+
+      const first = Object.keys(cities)[0];
+      setCity(first);
+    }
+
+    function setCity(name){
+      currentCity = name;
+      const cfg = cities[name];
+      if (!cfg) return;
+
+      // update hero
+      plannerName.textContent = cfg.plannerName;
+      cityName.textContent = name;
+      cityLogo.src = cfg.branding?.logo || '';
+      cityLogo.onerror = () => { cityLogo.removeAttribute('src'); };
+
+      // theme: use city colors for user bubble + theme bar
+      if (cfg.branding?.primaryColor){
+        document.documentElement.style.setProperty('--bubble-you', cfg.branding.primaryColor);
+      }
+      if (cfg.branding?.accentColor){
+        themeBar.style.background = `linear-gradient(90deg, var(--bubble-you), ${cfg.branding.accentColor}, #80CBC4)`;
+      }
+
+      // reset chat
+      log.innerHTML = '';
+      addMsg(`You’re chatting with ${cfg.plannerName} for ${name}.`, 'ai');
+    }
+
+    citySel.addEventListener('change', () => setCity(citySel.value));
+
+    async function send(){
+      const text = msgInput.value.trim();
+      if (!text || !currentCity) return;
+      msgInput.value = '';
+      addMsg(text, 'you');
+
+      sendBtn.disabled = true;
+      addTyping();
+
+      try{
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ city: currentCity, message: text })
+        });
+        const data = await res.json();
+        removeTyping();
+        if (!res.ok){
+          addMsg('Error: ' + (data.error || 'Request failed'), 'ai');
+          return;
+        }
+        addMsg(data.reply, 'ai');
+      }catch(err){
+        removeTyping();
+        addMsg('Network error. Try again.', 'ai');
+      }finally{
+        sendBtn.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+
+    sendBtn.addEventListener('click', send);
+    msgInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') send(); });
+
+    loadCities();
+  </script>
 </body>
 </html>
