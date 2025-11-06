@@ -1,50 +1,38 @@
 {
   "Greenvale": {
     "envKey": "CITY_GREENVALE_TOKEN",
-    "plannerName": "Avery Chen, AICP — Greenvale City Planner",
+    "plannerName": "Maria Bento, Senior Planner",
     "branding": {
-      "logo": "/assets/logos/greenvale.svg",
+      "logo": "/assets/logos/greenvale.png",
       "primaryColor": "#2E7D32",
       "accentColor": "#A5D6A7"
-    },
-    "responseWindowSeconds": 25,
-    "timezone": "America/New_York",
-    "hours": { "open": "08:00", "close": "18:00", "days": ["Mon","Tue","Wed","Thu","Fri"] }
+    }
   },
   "Harbortown": {
     "envKey": "CITY_HARBORTOWN_TOKEN",
-    "plannerName": "Jordan Reyes — Harbortown Planning Lead",
+    "plannerName": "Amy Mythos, Senior Planner",
     "branding": {
-      "logo": "/assets/logos/harbortown.svg",
+      "logo": "/assets/logos/harbortown.png",
       "primaryColor": "#1565C0",
       "accentColor": "#90CAF9"
-    },
-    "responseWindowSeconds": 25,
-    "timezone": "America/New_York",
-    "hours": { "open": "09:00", "close": "19:00", "days": ["Mon","Tue","Wed","Thu","Fri"] }
+    }
   },
   "Ironridge": {
     "envKey": "CITY_IRONRIDGE_TOKEN",
-    "plannerName": "Samir Patel — Ironridge Senior Planner",
+    "plannerName": "Chris Markus, Senior Planner",
     "branding": {
-      "logo": "/assets/logos/ironridge.svg",
+      "logo": "/assets/logos/ironridge.png",
       "primaryColor": "#37474F",
       "accentColor": "#B0BEC5"
-    },
-    "responseWindowSeconds": 25,
-    "timezone": "America/New_York",
-    "hours": { "open": "07:30", "close": "17:30", "days": ["Mon","Tue","Wed","Thu","Fri"] }
+    }
   },
   "Riverton": {
     "envKey": "CITY_RIVERTON_TOKEN",
-    "plannerName": "Elena Morales — Riverton City Planner",
+    "plannerName": "Ryan Hill, Senior Planner",
     "branding": {
-      "logo": "/assets/logos/riverton.svg",
+      "logo": "/assets/logos/riverton.png",
       "primaryColor": "#00897B",
       "accentColor": "#80CBC4"
-    },
-    "responseWindowSeconds": 25,
-    "timezone": "America/New_York",
-    "hours": { "open": "08:30", "close": "18:30", "days": ["Mon","Tue","Wed","Thu","Fri"] }
+    }
   }
 }
