@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Virtual Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#2b72ff" />
+  <link id="favicon" rel="icon" type="image/png" href="/brand/greenvale.png" />
+
+  <style>
+    :root{
+      --brand:#2b72ff;         /* will be overridden per city */
+      --ink:#111;
+      --muted:#6b7280;
+      --bg:#f7f7fb;
+      --card:#fff;
+      --line:#e5e7eb;
+      --you:#eef4ff;
+      --bot:#fafafa;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      font-family:system-ui, Segoe UI, Arial;
+      margin:0; color:var(--ink); background:var(--bg);
+    }
+
+    .app{max-width:860px;margin:0 auto;padding:0 16px}
+
+    /* Header + input bar (sticky at top) */
+    header{
+      position:sticky; top:0; z-index:5;
+      background:linear-gradient(180deg,#fff, #fff 70%, rgba(255,255,255,0.85));
+      border-bottom:1px solid var(--line);
+      backdrop-filter:saturate(1.2) blur(6px);
+    }
+
+    .topbar{
+      display:flex; align-items:center; gap:12px;
+      padding:14px 0 10px;
+    }
+    #cityLogo{width:44px;height:44px;object-fit:contain;flex:0 0 44px;
+      filter:drop-shadow(0 1px 1px rgba(0,0,0,.08));}
+    #title{font-weight:700;font-size:18px}
+
+    form#f{
+      display:flex; gap:10px; padding:10px 0 12px;
+    }
+    input#m{
+      flex:1; font-size:16px; padding:12px 14px;
+      background:#fff; border:1px solid #d1d5db; border-radius:12px;
+    }
+    button#send{
+      padding:12px 16px; border:0; border-radius:12px;
+      background:var(--brand); color:#fff; font-size:16px; cursor:pointer;
+    }
+
+    /* Chat */
+    #log{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:10px; min-height:44vh;
+      box-shadow:0 10px 30px rgba(0,0,0,.06);
+      margin:12px 0 16px;
+    }
+    .row{display:flex; gap:10px; margin:12px 6px}
+    .bubble{
+      padding:12px 14px; border-radius:14px;
+      border:1px solid var(--line); line-height:1.6;
+      max-width:min(680px, 88%);
+      white-space:pre-line;
+    }
+    .you .bubble{
+      background:var(--you); border-left:4px solid var(--brand);
+      margin-left:auto;
+    }
+    .bot .bubble{
+      background:var(--bot); border-left:4px solid #e5e7eb;
+      margin-right:auto;
+    }
+
+    /* Avatar/initials for planner */
+    .avatar{
+      width:32px; height:32px; border-radius:50%;
+      background:var(--brand); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:12px; flex:0 0 32px;
+      box-shadow:0 1px 0 rgba(0,0,0,.04);
+    }
+
+    /* typing dots */
+    .dots{display:inline-block; min-width:28px}
+    .dots:after{
+      content:"⋯"; letter-spacing:2px; animation:pulse 1.2s infinite;
+    }
+    @keyframes pulse{
+      0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2}
+    }
+
+    footer{
+      text-align:center; color:var(--muted);
+      font-size:12px; margin:10px 0 24px;
+    }
+
+    /* Small screens tweaks */
+    @media (max-width:480px){
+      #title{font-size:16px}
+      input#m, button#send{font-size:15px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <header>
+      <div class="topbar">
+        <img id="cityLogo" alt="" />
+        <div id="title"></div>
+      </div>
+
+      <form id="f" autocomplete="off">
+        <input id="m" placeholder="Ask about uses, parking, definitions…" />
+        <button id="send" type="submit">Send</button>
+      </form>
+    </header>
+
+    <div id="log" aria-live="polite"></div>
+
+    <footer>© Purpose Driven Games</footer>
+  </div>
+
+<script>
+  // ------------- Params (city + token from URL) -------------
+  const params   = new URLSearchParams(location.search);
+  const rawCity  = (params.get("city")  || "").toLowerCase().trim();
+  const token    = (params.get("token") || "").trim();
+
+  // ------------- Planner display name (no city in title) -------------
+  const planners = {
+    "greenvale":     "Maria Bento, Senior Planner",
+    "harbortown-tx": "Amy Mythos, Senior Planner",
+    "ironridge-nj":  "Chris Markus, Senior Planner",
+    "riverton-nc":   "Ryan Hill, Senior Planner"
+  };
+  const plannerTitle = planners[rawCity] || "Senior Planner";
+  document.getElementById("title").textContent = plannerTitle;
+
+  // ------------- Branding (color + seal per city) -------------
+  const cityBrand = {
+    "greenvale":     { color:"#1B7A3E", logo:"/brand/greenvale.png",  alt:"City of Greenvale seal" },
+    "harbortown-tx": { color:"#173B63", logo:"/brand/harbortown.png", alt:"City of Harbortown seal" },
+    "ironridge-nj":  { color:"#6D2323", logo:"/brand/ironridge.png",  alt:"City of Ironridge seal" },
+    "riverton-nc":   { color:"#16395F", logo:"/brand/riverton.png",   alt:"City of Riverton seal" }
+  };
+  const brand = cityBrand[rawCity];
+  if (brand){
+    document.documentElement.style.setProperty("--brand", brand.color);
+    const logoEl = document.getElementById("cityLogo");
+    logoEl.src = brand.logo; logoEl.alt = brand.alt;
+    document.querySelector('#send').style.background = brand.color;
+    (document.querySelector('meta[name="theme-color"]')||{}).content = brand.color;
+    const fav = document.getElementById("favicon"); if (fav) fav.href = brand.logo;
+  }
+
+  // ------------- Chat plumbing -------------
+  const log  = document.getElementById("log");
+  const form = document.getElementById("f");
+  const m    = document.getElementById("m");
+
+  function initials(name){
+    const parts = (name||"").split(/\s+/).filter(Boolean);
+    return (parts[0]?.[0]||"P") + (parts[1]?.[0]||"L");
+  }
+  const plannerInitials = initials(plannerTitle);
+
+  function add(role, text, opts={}){
+    const row  = document.createElement("div");
+    row.className = "row " + role;
+
+    if (role === "bot"){
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = plannerInitials.toUpperCase();
+      row.appendChild(av);
+    } else {
+      const spacer = document.createElement("div");
+      spacer.style.width = "32px"; spacer.style.flex = "0 0 32px";
+      row.appendChild(spacer);
+    }
+
+    const b = document.createElement("div");
+    b.className = "bubble";
+    b.textContent = text || "";
+    if (opts.typing){ b.innerHTML = '<span class="dots"></span>'; }
+
+    row.appendChild(b);
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+    return { row, bubble:b };
+  }
+
+  async function ask(msg){
+    // show user
+    add("you", msg);
+
+    // typing row
+    const t = add("bot", "", { typing:true });
+
+    try{
+      const url = "/api/respond?city=" + encodeURIComponent(rawCity) +
+                  "&token=" + encodeURIComponent(token);
+      const r = await fetch(url, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ user: msg })
+      });
+
+      if (!r.ok){
+        // common cases: 401/403 when token/window invalid
+        t.bubble.textContent = (r.status===401 || r.status===403)
+          ? "Access issue — please scan the correct QR for this table/city or check your session window."
+          : "Sorry — I couldn’t load a response.";
+        return;
+      }
+
+      const data = await r.json();
+      t.bubble.textContent = (data && (data.text || data.error)) || "Sorry — I couldn’t load a response.";
+    } catch(e){
+      t.bubble.textContent = "Sorry — I couldn’t load a response.";
+    } finally{
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const msg = (m.value||"").trim();
+    if(!msg) return;
+    m.value = "";
+    ask(msg);
+  });
+</script>
+</body>
+</html>
