@@ -1,9 +1,4 @@
-// server.js — Virtual Planner with Admin Override
-// - Loads cities from config/cities.json via fs
-// - Time + token gate for both UI and API
-// - Runtime admin override (no restart required): /admin?key=ADMIN_KEY
-// - Pretty citations: [file.txt] -> "Article X — Title"
-
+// server.js — Virtual Planner (robust errors + logo-friendly + clear logs)
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -19,155 +14,108 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const PORT = process.env.PORT || 3000;
 const ROOT = process.cwd();
 
-// -----------------------------
-// Config + runtime flags
-// -----------------------------
+// ---------- config ----------
 const CITIES_PATH = path.join(ROOT, "config", "cities.json");
-const cities = JSON.parse(fs.readFileSync(CITIES_PATH, "utf8"));
+let cities = {};
+try {
+  cities = JSON.parse(fs.readFileSync(CITIES_PATH, "utf8"));
+} catch (e) {
+  console.error("ERROR: Cannot read config/cities.json", e);
+}
 
-// Runtime access flag (can be toggled from /admin without restart)
 let runtimeAccessEnabled =
   String(process.env.ACCESS_ENABLED ?? "true").toLowerCase() !== "false";
-
 const ADMIN_KEY = String(process.env.ADMIN_KEY || "");
 
-// -----------------------------
-// Helpers
-// -----------------------------
-function read(filePath) {
-  try { return fs.readFileSync(filePath, "utf8"); }
-  catch { return ""; }
-}
+// ---------- helpers ----------
+const read = (p) => {
+  try { return fs.readFileSync(p, "utf8"); } catch { return ""; }
+};
+
+const dirExists = (p) => {
+  try { return fs.statSync(p).isDirectory(); } catch { return false; }
+};
+const fileExists = (p) => {
+  try { return fs.statSync(p).isFile(); } catch { return false; }
+};
+
+const escapeReg = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function loadAll(city) {
   const dir = path.join(ROOT, "content", city);
-  let files = [];
-  try {
-    files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".txt"));
-  } catch {
-    return {};
-  }
+  if (!dirExists(dir)) return {};
+  const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".txt"));
   const map = {};
-  for (const f of files) {
-    map[f] = read(path.join(dir, f));
-  }
+  for (const f of files) map[f] = read(path.join(dir, f));
   return map;
 }
 
 function loadIndex(city) {
   const p = path.join(ROOT, "content", city, "index.csv");
   const raw = read(p);
-  const out = new Map();
-  if (!raw.trim()) return out;
-
-  const lines = raw.split(/\r?\n/).filter(Boolean);
-  for (const line of lines) {
-    const cols = line.split(",").map(s => s.trim());
-    if (cols.length < 3) continue;
-    const [file, article, title] = cols;
-    if (!file.toLowerCase().endsWith(".txt")) continue;
-    out.set(file, { article, title });
+  const map = new Map();
+  if (!raw.trim()) return map;
+  for (const line of raw.split(/\r?\n/).filter(Boolean)) {
+    const [file, article, title] = line.split(",").map(s => s?.trim() ?? "");
+    if (!file?.toLowerCase().endsWith(".txt")) continue;
+    map.set(file, { article, title });
   }
-  return out;
+  return map;
 }
 
 function prettyCitations(city, text) {
+  // Convert [file.txt] → "Article X — Title" using index.csv
   const index = loadIndex(city);
-  if (!index.size) {
-    return text.replace(/\[([^\]]+\.txt)\]/g, (_, f) => f.replace(/\.txt$/i, ""));
-  }
   return text.replace(/\[([^\]]+\.txt)\]/g, (_, f) => {
     const meta = index.get(f) || index.get(f.trim());
     if (!meta) return f.replace(/\.txt$/i, "");
-    const a = meta.article || "";
+    const a = meta.article ? `Article ${meta.article}` : "Article";
     const t = meta.title || "";
-    const aLabel = a ? `Article ${a}` : "Article";
-    return `${aLabel} — ${t}`.trim();
+    return `${a} — ${t}`.trim();
   });
 }
 
-function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-
-function sliceByKeywords(allFilesMap, question, maxChars = 6000) {
+function sliceByKeywords(all, question, maxChars = 6000) {
   const q = (question || "").toLowerCase();
-  const terms = Array.from(new Set(
-    q.split(/[^a-z0-9]+/i).filter(Boolean).map(s => s.toLowerCase())
-  ));
+  const terms = Array.from(new Set(q.split(/[^a-z0-9]+/i).filter(Boolean)));
   const scored = [];
 
-  for (const [file, text] of Object.entries(allFilesMap)) {
-    const lower = text.toLowerCase();
+  for (const [file, text] of Object.entries(all)) {
+    const lower = (text || "").toLowerCase();
     let score = 0;
     for (const t of terms) {
       if (t.length < 3) continue;
-      const hits = (lower.match(new RegExp(`\\b${escapeReg(t)}\\b`, "g")) || []).length;
-      score += hits;
+      score += (lower.match(new RegExp(`\\b${escapeReg(t)}\\b`, "g")) || []).length;
     }
-    for (const bonus of ["use", "permitted", "special", "parking", "definition", "district", "table"]) {
-      score += (lower.includes(bonus) ? 0.25 : 0);
+    for (const hint of ["use","permitted","special","parking","definition","district","table"]) {
+      score += lower.includes(hint) ? 0.25 : 0;
     }
     scored.push({ file, text, score });
   }
 
-  scored.sort((a, b) => b.score - a.score);
-  const out = [];
-  let total = 0;
+  scored.sort((a,b)=> b.score - a.score);
+  let out = "", total = 0;
   for (const s of scored) {
     if (total >= maxChars) break;
-    out.push(`--- ${s.file} ---\n${s.text.trim()}\n`);
-    total += s.text.length;
+    out += `--- ${s.file} ---\n${(s.text||"").trim()}\n\n`;
+    total += (s.text||"").length;
   }
-  return out.join("\n");
+  return out;
 }
 
-function getCityConfig(city) { return cities[city] || null; }
+function getCityConfig(city){ return cities[city] || null; }
 function isWithinWindow(now, startIso, endIso) {
   if (!startIso || !endIso) return true;
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  return now >= start && now <= end;
+  const st = new Date(startIso), en = new Date(endIso);
+  return now >= st && now <= en;
 }
 
 function sendClosed(res) {
-  const closedPath = path.join(ROOT, "public", "closed.html");
-  res.status(403).sendFile(closedPath);
+  return res.status(403).sendFile(path.join(ROOT,"public","closed.html"));
 }
 
-// -----------------------------
-// Gate middleware
-// -----------------------------
-function gate(req, res, next) {
-  const cityRaw = (req.query.city || "").toString().toLowerCase().trim();
-  const tokenQ = (req.query.token || "").toString().trim();
-
-  const cfg = getCityConfig(cityRaw);
-  if (!cfg) return res.status(404).send("Unknown city.");
-
-  // Admin runtime kill switch
-  if (!runtimeAccessEnabled) {
-    return sendClosed(res);
-  }
-
-  // Token required
-  if (!tokenQ || tokenQ !== cfg.token) {
-    return res.status(401).send("Unauthorized (invalid or missing token).");
-  }
-
-  // Time window
-  const now = new Date();
-  if (!isWithinWindow(now, cfg.start, cfg.end)) {
-    return sendClosed(res);
-  }
-
-  req.city = cityRaw;
-  req.planner = cfg.planner;
-  next();
-}
-
-// -----------------------------
-// Admin UI (simple, no build)
-// -----------------------------
-function adminAuth(req, res, next) {
+// ---------- admin ----------
+function adminAuth(req,res,next){
   const key = (req.query.key || req.body?.key || "").toString();
   if (!ADMIN_KEY || key !== ADMIN_KEY) {
     return res.status(401).send("Unauthorized (bad admin key).");
@@ -175,88 +123,43 @@ function adminAuth(req, res, next) {
   next();
 }
 
-app.get("/admin", adminAuth, (req, res) => {
-  const rows = Object.entries(cities).map(([k, v]) => {
+app.get("/admin", adminAuth, (req,res)=>{
+  const rows = Object.entries(cities).map(([k,v])=>{
     const url = `/?city=${encodeURIComponent(k)}&token=${encodeURIComponent(v.token)}`;
-    return `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee">${k}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.planner}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.start} → ${v.end}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee">
-          <a href="${url}" target="_blank">Open</a>
-        </td>
-      </tr>
-    `;
+    return `<tr>
+      <td>${k}</td><td>${v.planner}</td><td>${v.start} → ${v.end}</td>
+      <td><a href="${url}" target="_blank">Open</a></td>
+    </tr>`;
   }).join("");
-
-  res.send(`
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Virtual Planner Admin</title>
-<style>
-  body{font-family:system-ui,Segoe UI,Arial;margin:0;background:#f7f7fb;color:#111}
-  .wrap{max-width:900px;margin:24px auto;padding:0 16px}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.06);padding:20px}
-  h1{margin:0 0 12px;font-size:20px}
-  .row{display:flex;align-items:center;gap:10px;margin:12px 0}
-  .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid #e5e7eb}
-  .on{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
-  .off{background:#fef2f2;color:#991b1b;border-color:#fecaca}
-  button{padding:10px 14px;border-radius:10px;border:1px solid #e5e7eb;background:#2b72ff;color:#fff;cursor:pointer}
-  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}
-  th,td{padding:8px 12px;border-bottom:1px solid #eee;text-align:left}
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Virtual Planner — Admin</h1>
-      <div class="row">
-        <span>Status:</span>
-        <span id="status" class="pill ${runtimeAccessEnabled ? "on" : "off"}">
-          ${runtimeAccessEnabled ? "Enabled" : "Disabled"}
-        </span>
-        <button onclick="toggle(true)">Enable</button>
-        <button onclick="toggle(false)" style="background:#fff;color:#111">Disable</button>
-      </div>
-
-      <table>
-        <thead><tr><th>City</th><th>Planner</th><th>Window</th><th>Test</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  </div>
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Admin</title>
+<style>body{font-family:system-ui;max-width:900px;margin:24px auto;padding:0 16px}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #eee;padding:8px}
+.btn{padding:8px 12px;border:1px solid #ddd;border-radius:8px;cursor:pointer}</style>
+</head><body>
+<h1>Virtual Planner — Admin</h1>
+<p>Status: <b>${runtimeAccessEnabled ? "Enabled" : "Disabled"}</b>
+<button class="btn" onclick="toggle(true)">Enable</button>
+<button class="btn" onclick="toggle(false)">Disable</button></p>
+<table><thead><tr><th>City</th><th>Planner</th><th>Window</th><th>Test</th></tr></thead>
+<tbody>${rows}</tbody></table>
 <script>
-  async function toggle(enabled){
-    const key = new URLSearchParams(location.search).get("key");
-    const r = await fetch("/admin/toggle?key="+encodeURIComponent(key), {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ enabled })
-    });
-    const data = await r.json();
-    const s = document.getElementById("status");
-    s.textContent = data.enabled ? "Enabled" : "Disabled";
-    s.className = "pill " + (data.enabled ? "on" : "off");
-  }
-</script>
-</body>
-</html>
-  `);
+async function toggle(enabled){
+  const key = new URLSearchParams(location.search).get("key");
+  const r = await fetch("/admin/toggle?key="+encodeURIComponent(key), {
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({enabled})
+  });
+  location.reload();
+}
+</script></body></html>`);
 });
 
 app.post("/admin/toggle", adminAuth, (req, res) => {
-  // body may not be parsed for urlencoded; we use JSON above
   let body = "";
   req.on("data", c => body += c);
   req.on("end", () => {
     try {
-      const parsed = body ? JSON.parse(body) : {};
-      const val = !!parsed.enabled;
+      const val = !!JSON.parse(body||"{}").enabled;
       runtimeAccessEnabled = val;
       res.json({ enabled: runtimeAccessEnabled });
     } catch {
@@ -265,46 +168,76 @@ app.post("/admin/toggle", adminAuth, (req, res) => {
   });
 });
 
-// -----------------------------
-// User routes
-// -----------------------------
-app.get("/", gate, (req, res) => {
-  const indexPath = path.join(ROOT, "public", "index.html");
-  res.sendFile(indexPath);
+// ---------- gates ----------
+function gate(req,res,next){
+  const city = (req.query.city || "").toString().toLowerCase().trim();
+  const token = (req.query.token || "").toString().trim();
+
+  const cfg = getCityConfig(city);
+  if (!cfg) return res.status(404).send("Unknown city.");
+
+  if (!runtimeAccessEnabled) return sendClosed(res);
+
+  if (!token || token !== cfg.token) {
+    return res.status(401).send("Unauthorized (invalid or missing token).");
+  }
+
+  const now = new Date();
+  if (!isWithinWindow(now, cfg.start, cfg.end)) return sendClosed(res);
+
+  req.city = city;
+  req.planner = cfg.planner || "Senior Planner";
+  next();
+}
+
+// ---------- routes ----------
+app.get("/", gate, (req,res)=> {
+  res.sendFile(path.join(ROOT,"public","index.html"));
 });
 
-app.post("/api/respond", gate, async (req, res) => {
-  try {
-    const city = req.city;
-    const plannerName = req.planner || "Senior Planner";
-    const question = (req.body?.user || "").toString().slice(0, 2000);
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    access: runtimeAccessEnabled,
+    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+    cities: Object.keys(cities)
+  });
+});
 
-    if (!question.trim()) {
-      return res.json({ text: "Please enter a question." });
+app.post("/api/respond", gate, async (req,res)=>{
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: "Missing OPENAI_API_KEY on server." });
     }
 
+    const city = req.city;
+    const plannerName = req.planner;
+    const q = (req.body?.user || "").toString().slice(0,2000).trim();
+    if (!q) return res.json({ text: "Please enter a question." });
+
     const all = loadAll(city);
-    const context = sliceByKeywords(all, question);
+    const context = sliceByKeywords(all, q);
+    if (!context.trim()) {
+      return res.json({
+        text: `I don't see that in our excerpts for this city. You may need to ask a staff member or check the full code at City Hall.`
+      });
+    }
 
     const SYSTEM = `
-You are the city's Virtual Planner (a simulation) named ${plannerName}.
-Speak as the planner—use “I” when appropriate (e.g., “I don’t see that in our code”).
-Audience: adults reading at a 7–8th grade level. Keep it short (max ~120 words).
-Tone: friendly, practical, and direct; avoid legalese. No emojis.
-
+You are the city's Virtual Planner (simulation): ${plannerName}.
+Audience: 7–8th grade reading level. Keep answers under ~120 words.
 Rules:
-- Only rely on the zoning excerpts provided in CONTEXT. Do not invent rules.
-- If the code doesn’t cover it, say so clearly (vary phrasing) and suggest one useful next step (vary phrasing).
+- Use ONLY the supplied CONTEXT (zoning excerpts). If not present, say so plainly.
 - Start with a clear answer in 1–2 short sentences.
-- If helpful, add 0–1 gentle prompt (not every time).
-- Include one citation per answer when relevant, formatted as [filename.txt].
+- Add at most one brief next-step suggestion (vary the phrasing).
+- Include one citation per answer when relevant, formatted [file.txt].
 `;
 
     const USER = `
 CITY: ${city}
-QUESTION: ${question}
+QUESTION: ${q}
 
-CONTEXT (zoning excerpts):
+CONTEXT:
 ${context}
 `;
 
@@ -319,18 +252,21 @@ ${context}
     });
 
     let answer = (completion.choices?.[0]?.message?.content || "").trim();
+    if (!answer) {
+      return res.status(502).json({ error: "No response from model." });
+    }
     answer = prettyCitations(city, answer);
+    return res.json({ text: answer });
 
-    res.json({ text: answer });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error." });
+    console.error("RESPOND ERROR:", err);
+    return res.status(500).json({ error: "Server error while generating an answer." });
   }
 });
 
-// Static
-app.use(express.static(path.join(ROOT, "public")));
+// static
+app.use(express.static(path.join(ROOT,"public")));
 
-app.listen(PORT, () => {
+app.listen(PORT, ()=> {
   console.log(`Virtual Planner running on http://localhost:${PORT}`);
 });
